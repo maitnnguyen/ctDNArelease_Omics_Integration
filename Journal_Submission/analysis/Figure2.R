@@ -1,114 +1,263 @@
-source('src/00_functions.R')
+source('00_functions.R')
 
-# survival analysis
-surv_df <- ctdna_cohort %>%
-  mutate(event = ifelse(progress=='Yes', 1, 0),
-         died = ifelse(alive == 'Alive', 0, 1),
-         PFI = ifelse(PFI < 0, 0, PFI),
-         HRD = sub('NA', 'ND', ifelse(is.na(HRD), 'NA', HRD)),
-         # 0.01418: max of benign samples
-         pheno = factor(ctdna_lev, levels = c('low' , 'med', 'high')),
-         treatment = ifelse(treatment == 'Other', 'NACT', treatment)) |>
-  filter(!is.na(PFI)) 
-dim(surv_df)
-pfi_object <- Surv(time = surv_df$PFI/30, event = surv_df$event)
-pfs_object <- Surv(time = surv_df$PFS/30, event = surv_df$died)
-os_object <- Surv(time = surv_df$OS/30, event = surv_df$died)
+genome_size <- 2900077904/1e6 # (Megabase)
+# load WGS tissue mutation data
+load('~/OmicsIntegration/data/WGS/mutation_call_4_6.RData')
 
-fit1 <- survfit(pfi_object ~ pheno, data = surv_df)
-#pairwise_survdiff(Surv(time = PFI, event = event) ~ pheno, data = surv_df)
+# mutational signature on sample level
+load('~/OmicsIntegration/data/WGS/mutational_signature_sample_lev_231005.RData')
 
-# Figure 2a: Kaplan Meier for ctdna_group
-fig2a <- ggsurvplot(fit1, data = surv_df, pval = TRUE, 
-                    #surv.median.line = "hv",
-                    # Change legends: title & labels
-                    legend.title = "",
-                    conf.int = F, 
-                    legend.labs = c("low ctDNA", "med ctDNA","high ctDNA"),
-                    risk.table = T,
-                    legend = 'none',#c(.8,.8),
-                    ylab='PFI Probability',
-                    xlab='Time (Months)',
-                    risk.table.col = "strata",
-                    palette = list_color,
-                    #risk.table.y.text=F,
-                    show.legend=F)
+load('~/OmicsIntegration/data/WGS/ascat_results.RData')
 
-svg('results/figures/final/Main/fig2a.svg', width = 6, height = 7)
-fig2a
-dev.off()
+dna_cohort <- ascat_est |>
+  filter(patient %in% ctdna_cohort$patient) |>
+  mutate(tissue_gr = ifelse(tissue %in% c('Ome', 'Per'), tissue, 
+                            ifelse(tissue %in% c('Ova', 'Tub', 'Adn', 'And'),
+                                   'Ova_Tub','Other'))) |>
+  left_join(ctdna_cohort |>
+              dplyr::select(patient, TF=ctDNA_fraction, Stage,
+                            ctdna_lev, treatment)) 
+  
+##### fig2a: number of breakpoints
+{
+  ascat_break <- ascat_break_point |>
+    inner_join(ctdna_cohort |>
+                dplyr::select(patient, ctdna_lev))
+  
+  fig2a <- ascat_break |> 
+    ggplot(aes(x=factor(ctdna_lev, 
+                        levels = c('low', 'med', 'high')), 
+               y = breaks/23)) +
+    geom_boxplot(aes(color=factor(ctdna_lev, 
+                                  levels = c('low', 'med', 'high'))),
+                 show.legend = F) +
+    geom_jitter(aes(color=factor(ctdna_lev, 
+                                 levels = c('low', 'med', 'high'))),
+                show.legend = F) +
+    scale_color_manual(values = list_color) +
+    stat_compare_means(size=5, label.y.npc = .85) +
+    stat_compare_means(comparisons = list(c('low', 'med'),
+                                          c('high', 'med'),
+                                          c('high', 'low')),
+                       label = 'p.signif', size=5,
+                       label.y = c(32,34,36), 
+                       tip.length = .01) +
+    labs(fill='ctDNA level', x='', 
+         y = 'Avg # Break Points per Chromosome') +
+    theme_pubr() +
+    theme(panel.grid.major.y = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.title = element_text(size=12), 
+          axis.text.y = element_text(size=10),
+          axis.text.x = element_blank(),
+          legend.position = 'none',
+          legend.text = element_text(size=10),
+          legend.title = element_text(size=15),
+          strip.text.x = element_text(size = 15))
+  
+  fig2a
+}
 
-# Fit a Cox proportional hazards model
-dat <- surv_df |>
-  mutate(prev_cancer = tolower(prev_cancer),
-         `BRCA1/2` = tolower(ifelse(BRCA_Decider=='NA', 'no',BRCA_Decider)),
-         figo = ifelse(Stage %in% c('I', 'II'), 'early', Stage),
-         bmi_gr = ifelse(BMI < 25, 'normal', 
-                      ifelse(BMI < 30, 'overweight', 'obese')))
-dim(dat)
-dat$ctdna_level = relevel(dat$pheno, ref = "med")
-coxph1 <- coxph(Surv(PFI, event) ~ ctdna_level + 
-                  treatment + 
-                  prev_cancer + 
-                  `BRCA1/2` +
-                  bmi_gr +
-                  #figo +
-                  age_gr , 
-                data = dat )
-fig2b <- ggforest(coxph1, data = dat , fontsize = 1)
-fig2b
+##### fig2b: mutational burden
+{
+  fig2b <- mut_pat_lev |>
+    dplyr::group_by(patient, ctdna_lev) %>%
+    dplyr::summarise(n_mut = n()/genome_size) %>%
+    as.data.frame() %>%
+    ggplot(aes(x = factor(ctdna_lev, 
+                          levels = c('low', 'med', 'high')), 
+               y = n_mut)) +
+    geom_violin(aes(color=factor(ctdna_lev, 
+                                 levels = c('low', 'med', 'high')))) +
+    geom_jitter(
+      aes(color = factor(ctdna_lev, 
+                         levels = c('low', 'med', 'high'))), 
+      position = position_jitterdodge(jitter.width = 1.4, dodge.width = .4),
+      size = 2, show.legend = F
+    ) +
+    stat_summary(color = 'black', fun.data="mean_sdl",  
+                 fun.args = list(mult=1), 
+                 geom = "pointrange",  size = 1,
+                 position = position_dodge(1))+
+    scale_color_manual(values = list_color) +
+    stat_compare_means(size=5) +
+    stat_compare_means(comparisons = list(c('high', 'med'),
+                                          c('low', 'med'),
+                                          c('high', 'low')),
+                       label = 'p.signif', size=5,
+                       label.y = c(13,11,15), 
+                       tip.length = .01) +
+    labs(fill='ctDNA Level', x = '', 
+         y='N somatic mutations per Megabase') +
+    theme_pubr() +
+    theme(axis.title = element_text(size=15), 
+          axis.text.y = element_text(size=13),
+          axis.text.x = element_blank(),
+          legend.position = 'none',
+          legend.text = element_text(size=10),
+          legend.title = element_text(size=12),
+          strip.text.x = element_text(size = 15))
+}
 
-ggsurvplot(survfit(Surv(OS, died) ~ pheno, data = dat), data = dat, pval = TRUE, 
-           # Change legends: title & labels
-           legend.title = "",
-           conf.int = F, 
-           legend.labs = c("low ctDNA", "med ctDNA","high ctDNA"),
-           risk.table = T,
-           legend = 'none',#c(.8,.8),
-           ylab='PFI Probability',
-           xlab='Time (Months)',
-           risk.table.col = "strata",
-           palette = list_color,
-           #risk.table.y.text=F,
-           show.legend=F)
+##### fig2c: mutation types
+{
+  fig2c <- mut_sigs |>
+    ggplot(aes(x = factor(ctdna_lev, levels = c('low', 'med', 'high')),
+               y = mut_count/genome_size)) + 
+    geom_jitter(
+      aes(color = factor(ctdna_lev, 
+                         levels = c('low', 'med', 'high'))), 
+      position = position_jitterdodge(jitter.width = 1, dodge.width = .4),
+      size = 2, show.legend = F
+    ) +
+    stat_summary(color = 'black', fun.data="mean_sdl",  
+                 fun.args = list(mult=1), 
+                 geom = "pointrange",  size = 1,
+                 position = position_dodge(1))+
+    scale_color_manual(values = list_color) +
+    facet_wrap(~factor(type, levels=c('SBS', 'DBS', 'ID')), scales = 'free_y') +
+    stat_compare_means(label.sep = '\n',
+                       size=5, label.y.npc = .9) +
+    scale_color_manual(values = list_color) +
+    labs(y='Mutation Count per Megabase', x ='') +
+    theme_pubr() +
+    theme(panel.grid.major.y = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.title = element_text(size=15), 
+          axis.text.x = element_blank(),
+          legend.position = c(.85,.75),
+          legend.text = element_text(size=10),
+          legend.title = element_text(size=15),
+          strip.text.x = element_text(size = 15))
+}
 
-svg('results/figures/final/Main/fig2b.svg', width = 6, height = 7)
-fig2b
-dev.off()
+##### fig2d: mutational signatures
+{
+  fig2d1 <- signatures_df |>
+    filter(signature %in% c('ID6', 'ID8')) |>
+    ggplot(aes(x = factor(ctdna_lev, 
+                          levels = c('low', 'med', 'high')),
+               y = count/genome_size)) +
+    geom_jitter(
+      aes(color = factor(ctdna_lev, 
+                         levels = c('low', 'med', 'high'))), 
+      position = position_jitterdodge(jitter.width = 1, dodge.width = .4),
+      size = 1, show.legend = F
+    ) +
+    stat_summary(color = '#696969', fun.data="mean_sdl",  
+                 fun.args = list(mult=1), 
+                 geom = "pointrange",  size = .5,
+                 position = position_dodge(1))+
+    stat_compare_means(size = 4, 
+                       label.sep = '\n',
+                       label.y.npc = .9) +
+    scale_color_manual(values = list_color) +
+    facet_wrap(~signature, scale = 'free', ncol = 3) +
+    labs(x='', y ='Mutation Count per Mb') +
+    theme_pubr() +
+    theme(panel.grid.major.y = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.title = element_text(size=12), 
+          axis.text.y = element_text(size=10),
+          axis.text.x = element_blank(),
+          legend.position = c(.85,.75),
+          legend.text = element_text(size=10),
+          legend.title = element_text(size=15),
+          strip.text.x = element_text(size = 15)) 
+  
+  fig2d2 <- signatures_df |>
+    filter(signature %in% c('SBS40', 'DBS9')) |>
+    ggplot(aes(x = factor(ctdna_lev, 
+                          levels = c('low', 'med', 'high')),
+               y = count/genome_size)) +
+    geom_jitter(
+      aes(color = factor(ctdna_lev, 
+                         levels = c('low', 'med', 'high'))), 
+      position = position_jitterdodge(jitter.width = 1, dodge.width = .4),
+      size = 1, show.legend = F
+    ) +
+    stat_summary(color = '#696969', fun.data="mean_sdl",  
+                 fun.args = list(mult=1), 
+                 geom = "pointrange",  size = .5,
+                 position = position_dodge(1))+
+    scale_color_manual(values = list_color) +
+    stat_compare_means(size = 4, 
+                       label.sep = '\n',
+                       label.y.npc = .9) +
+    facet_wrap(~factor(signature, levels=c('SBS40', 'DBS9')), 
+               scale = 'free', ncol = 3) +
+    labs(x='', y ='Mutation Count per Mb') +
+    theme_pubr() +
+    theme(panel.grid.major.y = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.title = element_text(size=12), 
+          axis.text.y = element_text(size=10),
+          axis.text.x = element_blank(),
+          legend.position = c(.85,.75),
+          legend.text = element_text(size=10),
+          legend.title = element_text(size=15),
+          strip.text.x = element_text(size = 15)) 
+}
 
-########## done ##########
-coxph2 <- coxph(Surv(PFI, event) ~ ctdna_level + 
-                  #hrd_sig + 
-                  treatment + 
-                  #prev_cancer + 
-                  `BRCA1/2` , 
-                data = dat)
-ggforest(coxph2, data = dat , fontsize = 1)
+##### fig2e: mutational signatures
+{
+  fig2e <- signatures_df |>
+    filter(signature %in% c('SBS1')) |>
+    ggplot(aes(x = factor(ctdna_lev, 
+                          levels = c('low', 'med', 'high')),
+               y = prop)) +
+    geom_violin(aes(fill = factor(ctdna_lev, 
+                                  levels = c('low', 'med', 'high'))), 
+                show.legend = F, alpha=.9) +
+    geom_boxplot(width=.2, outlier.shape = NA,
+                 show.legend = F) +
+    stat_compare_means(size = 3.5, label.y.npc = .9,
+                       label.sep = '\n', label.x = 1.5) +
+    scale_fill_manual(values = list_color) +
+    labs(x='', y ='SBS1 Contribution') +
+    theme_pubr() +
+    theme(panel.grid.major.y = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.title = element_text(size=12), 
+          axis.text.y = element_text(size=10),
+          axis.text.x = element_blank(),
+          legend.position = c(.85,.75),
+          legend.text = element_text(size=10),
+          legend.title = element_text(size=15),
+          strip.text.x = element_text(size = 15))
+}
 
-############## NACT Patients ###############
-dat1 <- dat %>% filter(treatment != 'PDS')
-dim(dat1)
-coxph3 <- coxph(Surv(PFI, event) ~ ctdna_level + 
-                  hrd_sig + 
-                  #treatment + 
-                  bmi_gr +
-                  Stage +
-                  age_gr , 
-                data = dat1 )
-ggforest(coxph3, data = dat1 , fontsize = 1)
-
-ggsurvplot(survfit(Surv(PFI, event) ~ pheno, data = dat1), data = dat1, pval = TRUE, 
-           # Change legends: title & labels
-           legend.title = "",
-           conf.int = F, 
-           legend.labs = c("low ctDNA", "med ctDNA","high ctDNA"),
-           risk.table = T,
-           legend = 'none',#c(.8,.8),
-           ylab='PFI Probability',
-           xlab='Time (Months)',
-           risk.table.col = "strata",
-           palette = list_color,
-           #risk.table.y.text=F,
-           show.legend=F)
+##### fig2f: mutational signatures
+{
+  stat.test <- xchisq.test(ctdna_lev ~id5, data=signatures_df)
+  fig2f <- signatures_df |>
+    ggplot(aes(x = factor(ctdna_lev, 
+                          levels = c('low', 'med', 'high')))) +
+    geom_bar(aes(fill = id5,
+                 color = factor(ctdna_lev, 
+                                levels = c('low', 'med', 'high'))), 
+             position = 'fill', linewidth=1.2) +
+    annotate("text", x=2, y =1.1, size = 4, family='Arial',
+             label = paste0('X-squared: ',
+                            round((chisq.test(sig_df4$ctdna_lev, sig_df4$id5))$stat,4), 
+                            ',\np-value: ', 
+                            round((chisq.test(sig_df4$ctdna_lev, 
+                                              sig_df4$id5))$p.value,4))) +
+    scale_fill_brewer(palette = 'PuBu', direction = -1) +
+    scale_color_manual(values=list_color) +
+    labs(x='', y ='ID5', color='ctDNA level',
+         fill = 'ID5') +
+    ylim(0,1.15)+
+    theme_pubr() +
+    theme(panel.grid.major.y = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.title = element_text(size=12), 
+          axis.text.y = element_text(size=10),
+          axis.text.x = element_blank(),
+          legend.position = 'right',
+          legend.text = element_text(size=10),
+          legend.title = element_text(size=15),
+          strip.text.x = element_text(size = 15))
+}
 
 ################ done ##################
