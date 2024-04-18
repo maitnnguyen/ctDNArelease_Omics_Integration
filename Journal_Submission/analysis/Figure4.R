@@ -41,7 +41,7 @@
                         kcdf="Poisson")
 }
 
-##### fig5a,b:
+##### fig4a,b:
 {
   hsi_sample <- t(hsi_NES) %>%
     as.data.frame() |>
@@ -104,7 +104,7 @@
   breaksList = seq(-3, 3, by = .4)
   
   ##### fig5a: heatmap
-  fig5a <- pheatmap::pheatmap(interested_pathways, annotation_row = ann.row, 
+  fig4a <- pheatmap::pheatmap(interested_pathways, annotation_row = ann.row, 
                      annotation_colors = ann.col, 
                      cluster_rows = F, show_rownames = F, 
                      scale = 'column',
@@ -113,7 +113,7 @@
                      fontsize_col = 8, cutree_rows = 4, cutree_cols = 2,
                      height = 3, width = 6)
 
-  ##### fig5b: correlation heatmap
+  ##### fig4b: correlation heatmap
   corrplot::corrplot(cor(interested_pathways), type = 'upper', 
                      tl.cex = .6, tl.col = c(rep('black',4),
                                              rep('#660066',4),
@@ -122,7 +122,7 @@
 }
 
 # PCA
-##### fig5c,d:
+##### fig4c,d:
 {
   data <- t(hsi_NES) %>%
     as.data.frame()
@@ -154,7 +154,7 @@
   # Contributions of variables to PC2
   factoextra::fviz_contrib(res.pca, choice = "var", axes = 2, top = 10)
   
-  fig5c <- factoextra::fviz_pca_var(res.pca, col.var="contrib", axes = c(1, 2),
+  fig4c <- factoextra::fviz_pca_var(res.pca, col.var="contrib", axes = c(1, 2),
                            gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
                            repel = TRUE, # Avoid text overlapping
                            labelsize = 4
@@ -170,7 +170,7 @@
           legend.title = element_text(size=15, family = 'Arial'),
           strip.text.x = element_text(size = 15, family = 'Arial'))
   
-  fig5d <- factoextra::fviz_pca_ind(res.pca, label="contrib",#axes = c(1, 3), 
+  fig4d <- factoextra::fviz_pca_ind(res.pca, label="contrib",#axes = c(1, 3), 
                            habillage=factor(data$ctdna_lev, 
                                             levels = c('low', 'med', 'high')),
                            alpha=.9,
