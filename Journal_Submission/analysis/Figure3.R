@@ -8,6 +8,10 @@ library(pheatmap)
 library(igraph)
 
 # load data
+## MDBSig hallmark
+pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
+
+## data
 load('~/OmicsIntegration/data/RNA/pretrt_RNA.RData')
 # contains related data tables: 
 # - bulk_rna: Bulk RNA data from primary samples
