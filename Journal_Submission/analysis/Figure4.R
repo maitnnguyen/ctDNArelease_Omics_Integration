@@ -1,4 +1,7 @@
 ############## GSVA scores for hallmark geneset
+## MDBSig hallmark
+pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
+
 # EOC Component
 {
   samples <- rna_cohort |>
