@@ -17,6 +17,9 @@
   - DESeq2 for differential expression gene
   - Gene set enrichment analysis with gsea
   - over representation analysis with pathfindR
+- Single-cell RNA:
+  - Manual annotation of 3 main cell types: epithelial, fibroblast, and immune
+  - After that, immune cells were extracted and annotated with celldex package, using 2 reference sets: MonacoImmuneData and DatabaseImmuneCellExpressionData
  
 ## Source code
 - Pipeline for data from plasma samples
