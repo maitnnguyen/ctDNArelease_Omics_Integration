@@ -55,8 +55,6 @@ object ichorCNA {
 
                                          """
             )
-            // java -jar /opt/share/picard-2.20.2/picard.jar DownsampleSam I=@var1@ O=@out2@ P=.01 \
-                                         //ACCURACY=0.0001 STRATEGY=HighAccuracy METRICS_FILE=metric.txt --CREATE_INDEX true
                                          
             DownBDNASample(sample)._filename("out1","out1.bam")
             //DownSampling(sample)._filename("out2","out2.bam")
