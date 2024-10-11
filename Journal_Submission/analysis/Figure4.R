@@ -59,24 +59,28 @@ pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
     dplyr::summarise(Score = mean(score))
   
   # 4 hallmarks proliferation-related gene sets
-  proliferate_pathways <- c( 'E2F_TARGETS', 'G2M_CHECKPOINT',
-                             'MYC_TARGETS_V1','MYC_TARGETS_V2')
+  proliferate_pathways <- c('E2F_TARGETS', 
+                            'G2M_CHECKPOINT',
+                            'MYC_TARGETS_V1',
+                            'MYC_TARGETS_V2')
   
   # metabolism-related pathway
-  metabolic_pathways <- c('OXIDATIVE_PHOSPHORYLATION', 'BILE_ACID_METABOLISM',
-                          'HEME_METABOLISM',
+  metabolic_pathways <- c('OXIDATIVE_PHOSPHORYLATION', 
+                          'GLYCOLYSIS',
+                          'UNFOLDED_PROTEIN_RESPONSE',
                           'FATTY_ACID_METABOLISM')
   
   # immune-related pathway
   imm_pathways <- c('IL6_JAK_STAT3_SIGNALING',
                     'ALLOGRAFT_REJECTION', 
-                    'COMPLEMENT',
+                    'COAGULATION',
                     'INFLAMMATORY_RESPONSE')
 
   # signaling-related pathway
   signaling_pathways <- c('MTORC1_SIGNALING',
-                          'HEDGEHOG_SIGNALING',#'PI3K_AKT_MTOR_SIGNALING',
-                          'TNFA_SIGNALING_VIA_NFKB','TGF_BETA_SIGNALING')
+                          'IL2_STAT5_SIGNALING',
+                          'HEDGEHOG_SIGNALING',
+                          'TNFA_SIGNALING_VIA_NFKB')
 
   interested_pathways <- hsi_sample[,c('patient',
                                        colnames(hsi_sample)[grepl('HALLMARK',colnames(hsi_sample))])]
@@ -112,7 +116,7 @@ pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
                      cluster_rows = F, show_rownames = F, 
                      scale = 'column',
                      color = colorRampPalette(c("#3399ff", "white", "#ff6666"))(length(breaksList)),
-                     breaks = breaksList, gaps_row = c(cumsum(c(48,31,24)),cumsum(c(48,31,24))), border_color = 'black',
+                     breaks = breaksList, gaps_row = c(cumsum(c(49,27,26)),cumsum(c(49,27,26))), border_color = 'black',
                      fontsize_col = 8, cutree_rows = 4, cutree_cols = 2,
                      height = 3, width = 6)
 
