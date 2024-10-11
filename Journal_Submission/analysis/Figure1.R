@@ -24,137 +24,99 @@ ctdna_cohort <- ctdna_df_prim |>
   filter(histology!='benign') |>
   dplyr::rename(concentration = `DNA_concentration (ng/ml)`)
 
-##### 1a - concentration/ctDNA fraction ~ treatment
-{
-  fig1a <- ggarrange(
-    ctdna_cohort |>
-      ggplot(aes(x=factor(treatment,
-                          labels=c('NACT', 'PDS')),
-                 y = concentration)) +
-      geom_violin(aes(fill=treatment), 
-                  show.legend = F, alpha = .9)+
-      geom_boxplot(width=.1)+
-      geom_jitter(size=.3) +
-      scale_y_break(c(2,5))+
-      labs(y='DNA concentration (ng/ml)', 
-           x='', fill='Treatment') +
-      stat_compare_means(label.y = 5, label.x = 1.2,
-                         size = 5)+
-      scale_fill_brewer(palette = 'Set2')+
-      theme_classic() +
-      theme(axis.title = element_text(size=15,  family = 'Arial'),
-            #axis.text.x = element_blank(),
-            axis.text = element_text(size=13, family = 'Arial'),
-            legend.position = 'top'), 
-  
-    ctdna_cohort |>
-      ggplot(aes(x=factor(treatment,
-                          labels=c('NACT', 'PDS')),
-                 y = ctdna_fraction)) +
-      geom_violin(aes(fill=treatment), 
-                  show.legend = F, alpha = .9)+
-      geom_boxplot(width=.1)+
-      geom_jitter(size=.3) +
-      scale_y_break(c(2,5))+
-      labs(y='ctDNA fraction', 
-           x='', fill='Treatment') +
-      stat_compare_means(label.y = 5, label.x = 1.2,
-                         size = 5)+
-      scale_fill_brewer(palette = 'Set2')+
-      theme_classic() +
-      theme(axis.title = element_text(size=15,  family = 'Arial'),
-            #axis.text.x = element_blank(),
-            axis.text = element_text(size=13, family = 'Arial'),
-            legend.position = 'top'),
-    nrow = 2
-  )
-}
-
-##### 1bc - primary treatment response ~ DNA concentration/ctDNA fraction
-dat1 <- ctdna_cohort |>
-  mutate(prim_outcome = ifelse(prim_outcome %in% c('died during chemotherapy','ND', 'No Chemotherapy'),
-                               'Other', 
-                               ifelse(prim_outcome %in% c('Stable Disease', 'Progressive Disease'),
-                                      'Stable/Progressive', prim_outcome)))
-{
-  fig1b <- dat1 |>
-    filter(prim_outcome != 'Other') |>
-    ggplot(aes(x=factor(prim_outcome,
-                        levels=c('Complete Response', 'Partial Response',
-                                 'Stable/Progressive'),
-                        labels=c('Complete\nResponse\n(n=71)', 'Partial\nResponse\n(n=31)',
-                                 'Progressive/\nStable\n(n=11)')),
-               y = concentration)) +
-    geom_boxplot(width=.5, 
-                 alpha=.7, show.legend = F)+
-    geom_jitter(size=.7) +
-    scale_y_break(c(2,5))+
-    labs(y='DNA concentration (ng/ml))', x='') +
-    theme_classic() +
-    theme(axis.text.x = element_text(size=13,  family = 'Arial'), 
-          axis.title = element_text(size=15,  family = 'Arial'),
-          axis.text = element_text(size=13, family = 'Arial'))
-  
-  fig1c <- dat1 |>
-    filter(prim_outcome != 'Other') |>
-    ggplot(aes(x=factor(prim_outcome,
-                        levels=c('Complete Response', 'Partial Response',
-                                 'Stable/Progressive'),
-                        labels=c('Complete\nResponse\n(n=71)', 'Partial\nResponse\n(n=31)',
-                                 'Progressive/\nStable\n(n=11)')),
-               y = TF)) +
-    scale_y_break(c(.12,.28))+
-    geom_boxplot(width=.5, outlier.shape = NA,
-                 alpha=.7, show.legend = F)+
-    geom_jitter(size=.7) +
-    labs(y='ctDNA Fraction', x='') +
-    theme_classic() +
-    theme(axis.title = element_text(size=15,  family = 'Arial'),
-          axis.text = element_text(size=13, family = 'Arial'))
-}
-
-##### 1de - survival analysis
+# 2. Figures
+##### 1ab - Kaplan Meier (KM) curves
 surv_df <- ctdna_cohort %>%
   mutate(event = ifelse(progress=='Yes', 1, 0),
          died = ifelse(alive == 'Alive', 0, 1),
          PFI = ifelse(PFI < 0, 0, PFI),
-         # 0.01418: max of benign samples
-         pheno = factor(ctdna_lev, levels = c('low' , 'med', 'high')),
+         # 0.0142: max of benign samples
+         ctdna_lev = factor(ctdna_lev, levels = c('low' , 'med', 'high')),
          # BMI group
          bmi_gr = ifelse(BMI < 25, 'normal', 
-                         ifelse(BMI < 30, 'overweight', 'obese'))) |>
+                         ifelse(BMI < 30, 'overweight', 'obese')),
+         stage = ifelse(Stage %in% c('I', 'II'), 'early', Stage),
+         age_gr = ifelse(age > 70, '>70', '≤70') |>
   filter(!is.na(PFI))
 
+### perform on subset of NACT & PDS patients
+surv_df_nact <- surv_df |>
+  filter(treatment=='NACT') |>
+  mutate(operable = ifelse(residual_ids == 'no_surgery','No','Yes'))
+
+surv_df_pds <- surv_df |>
+  filter(treatment=='PDS') |>
+  mutate(residual = ifelse(resi_pds == 'res_0', 'good', 'bad'))
+
 {
-  pfi_object <- Surv(time = surv_df$PFI/30, event = surv_df$event)
-  fit1 <- survfit(pfi_object ~ pheno, data = surv_df)
-  #pairwise_survdiff(Surv(time = PFI, event = event) ~ pheno, data = surv_df)
+  # PDS
+  pfi_object1 <- Surv(time = surv_df_pds$PFI/30, event = surv_df_pds$event)
+  fit1 <- survfit(pfi_object1 ~ ctdna_lev, data = surv_df_pds)
   
-  # Figure 1d: Kaplan Meier for ctdna_group
-  fig1d <- ggsurvplot(fit1, data = surv_df, pval = TRUE, 
-                      # Change legends: title & labels
-                      legend.title = "",
-                      conf.int = F, 
-                      legend.labs = c("low ctDNA", "med ctDNA","high ctDNA"),
-                      risk.table = T,
-                      legend = 'none',
-                      ylab='PFI Probability',
-                      xlab='Time (Months)',
-                      risk.table.col = "strata",
-                      palette = list_color,
-                      show.legend=F)
+  pfi_object2 <- Surv(time = surv_df_nact$PFI/30, event = surv_df_nact$event)
+  fit2 <- survfit(pfi_object2 ~ ctdna_lev, data = surv_df_nact)
   
-  # Fit a Cox proportional hazards model
-  surv_df$ctdna_level = relevel(surv_df$pheno, ref = "med")
+  #check pairwise in KM with BH correction for p values
+  #pairwise_survdiff(Surv(time = PFI, event = event) ~ ctdna_lev, data = surv_df_nact)
+  
+  # Figure 1a: KM for PDS patients
+  fig1a <- ggsurvplot(fit1, data = surv_df_pds, pval = TRUE, 
+                    title = 'ctDNA levels in PDS Patients',
+                    # Change legends: title & labels
+                    legend.title = "",
+                    conf.int = F, 
+                    legend.labs = c("low ctDNA", "med ctDNA","high ctDNA"),
+                    risk.table = T,
+                    legend = 'none',#c(.8,.8),
+                    ylab='PFI Probability',
+                    xlab='Time (Months)',
+                    risk.table.col = "strata",
+                    palette = list_color,
+                    #risk.table.y.text=F,
+                    show.legend=F)
+  
+  # Figure 1b: KM for NACT patients
+  fig1b <- ggsurvplot(fit2, data = surv_df_nact, pval = TRUE, 
+                    title = 'ctDNA levels in NACT Patients',
+                    # Change legends: title & labels
+                    legend.title = "",
+                    conf.int = F, 
+                    legend.labs = c("low ctDNA", "med ctDNA","high ctDNA"),
+                    risk.table = T,
+                    legend = 'none',#c(.8,.8),
+                    ylab='PFI Probability',
+                    xlab='Time (Months)',
+                    risk.table.col = "strata",
+                    palette = list_color,
+                    #risk.table.y.text=F,
+                    show.legend=F)
+}
+##### 1cd - Cox regression
+{
+  # PDS
+  surv_df_pds$ctdna_level = relevel(surv_df_pds$pheno, ref = "med")
   coxph1 <- coxph(Surv(PFI, event) ~ ctdna_level + 
-                    treatment + 
-                    prev_cancer + 
-                    `BRCA1/2` +
-                    bmi_gr +
-                    age_gr , 
-                  data = surv_df )
+                  residual + 
+                  stage +
+                  HRD +
+                  bmi_gr +
+                  age_gr , 
+                  data = surv_df_pds )
   
-  fig1e <- ggforest(coxph1, data = surv_df , fontsize = 1)
-  }
+  fig1c <- ggforest(coxph1, data = surv_df_pds , fontsize = 1)
+
+  
+  # NACT
+  surv_df_nact$ctdna_level = relevel(surv_df$ctdna_level, ref = "med")
+  coxph2 <- coxph(Surv(PFI, event) ~ ctdna_level + 
+                  operable +
+                  stage +
+                  HRDconcensus +
+                  bmi_gr +
+                  age_gr,
+                  data = surv_df_nact )
+  
+  fig1d <- ggforest(coxph2, data = surv_df_nact , fontsize = 1)
+}
 
 ################ done ##################
