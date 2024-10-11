@@ -71,7 +71,7 @@ rownames(rna_z_prim) = rna_z_prim$geneID
                                                  design= ~ 1 + pheno)
     # filtering
     #table(col_data$pheno)
-    smallestGroupSize <- 24
+    smallestGroupSize <- 26
     keep <- rowSums(DESeq2::counts(dds) > 0) >= smallestGroupSize
     dds <- dds[keep,]
     dim(dds)
