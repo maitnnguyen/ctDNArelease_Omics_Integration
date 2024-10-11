@@ -27,7 +27,7 @@ dna_cohort <- ascat_est |>
   fig2a <- ascat_break |> 
     ggplot(aes(x=factor(ctdna_lev, 
                         levels = c('low', 'med', 'high')), 
-               y = breaks/23)) +
+               y = breaks/genome_size)) +
     geom_boxplot(aes(color=factor(ctdna_lev, 
                                   levels = c('low', 'med', 'high'))),
                  show.legend = F) +
@@ -43,16 +43,16 @@ dna_cohort <- ascat_est |>
                        label.y = c(32,34,36), 
                        tip.length = .01) +
     labs(fill='ctDNA level', x='', 
-         y = 'Avg # Break Points per Chromosome') +
+         y = 'Avg N Breakpoints per Megabase') +
     theme_pubr() +
     theme(panel.grid.major.y = element_blank(),
           panel.grid.minor = element_blank(),
           axis.title = element_text(size=12), 
-          axis.text.y = element_text(size=10),
+          axis.text.y = element_text(size=13),
           axis.text.x = element_blank(),
           legend.position = 'none',
           legend.text = element_text(size=10),
-          legend.title = element_text(size=15),
+          legend.title = element_text(size=12),
           strip.text.x = element_text(size = 15))
   
   fig2a
@@ -88,7 +88,7 @@ dna_cohort <- ascat_est |>
                        label.y = c(13,11,15), 
                        tip.length = .01) +
     labs(fill='ctDNA Level', x = '', 
-         y='N somatic mutations per Megabase') +
+         y='Mutation Count per Megabase') +
     theme_pubr() +
     theme(axis.title = element_text(size=15), 
           axis.text.y = element_text(size=13),
@@ -124,48 +124,17 @@ dna_cohort <- ascat_est |>
     theme(panel.grid.major.y = element_blank(),
           panel.grid.minor = element_blank(),
           axis.title = element_text(size=15), 
+          axis.text.y = element_text(size=13),
           axis.text.x = element_blank(),
           legend.position = c(.85,.75),
           legend.text = element_text(size=10),
-          legend.title = element_text(size=15),
+          legend.title = element_text(size=12),
           strip.text.x = element_text(size = 15))
 }
 
 ##### fig2d: mutational signatures
-{
-  fig2d1 <- signatures_df |>
-    filter(signature %in% c('ID6', 'ID8')) |>
-    ggplot(aes(x = factor(ctdna_lev, 
-                          levels = c('low', 'med', 'high')),
-               y = count/genome_size)) +
-    geom_jitter(
-      aes(color = factor(ctdna_lev, 
-                         levels = c('low', 'med', 'high'))), 
-      position = position_jitterdodge(jitter.width = 1, dodge.width = .4),
-      size = 1, show.legend = F
-    ) +
-    stat_summary(color = '#696969', fun.data="mean_sdl",  
-                 fun.args = list(mult=1), 
-                 geom = "pointrange",  size = .5,
-                 position = position_dodge(1))+
-    stat_compare_means(size = 4, 
-                       label.sep = '\n',
-                       label.y.npc = .9) +
-    scale_color_manual(values = list_color) +
-    facet_wrap(~signature, scale = 'free', ncol = 3) +
-    labs(x='', y ='Mutation Count per Mb') +
-    theme_pubr() +
-    theme(panel.grid.major.y = element_blank(),
-          panel.grid.minor = element_blank(),
-          axis.title = element_text(size=12), 
-          axis.text.y = element_text(size=10),
-          axis.text.x = element_blank(),
-          legend.position = c(.85,.75),
-          legend.text = element_text(size=10),
-          legend.title = element_text(size=15),
-          strip.text.x = element_text(size = 15)) 
-  
-  fig2d2 <- signatures_df |>
+{  
+  fig2d <- signatures_df |>
     filter(signature %in% c('SBS40', 'DBS9')) |>
     ggplot(aes(x = factor(ctdna_lev, 
                           levels = c('low', 'med', 'high')),
@@ -186,7 +155,7 @@ dna_cohort <- ascat_est |>
                        label.y.npc = .9) +
     facet_wrap(~factor(signature, levels=c('SBS40', 'DBS9')), 
                scale = 'free', ncol = 3) +
-    labs(x='', y ='Mutation Count per Mb') +
+    labs(x='', y ='Mutation Count per Megabase') +
     theme_pubr() +
     theme(panel.grid.major.y = element_blank(),
           panel.grid.minor = element_blank(),
@@ -195,45 +164,17 @@ dna_cohort <- ascat_est |>
           axis.text.x = element_blank(),
           legend.position = c(.85,.75),
           legend.text = element_text(size=10),
-          legend.title = element_text(size=15),
+          legend.title = element_text(size=12),
           strip.text.x = element_text(size = 15)) 
-}
-
-##### fig2e: mutational signatures
-{
-  fig2e <- signatures_df |>
-    filter(signature %in% c('SBS1')) |>
-    ggplot(aes(x = factor(ctdna_lev, 
-                          levels = c('low', 'med', 'high')),
-               y = prop)) +
-    geom_violin(aes(fill = factor(ctdna_lev, 
-                                  levels = c('low', 'med', 'high'))), 
-                show.legend = F, alpha=.9) +
-    geom_boxplot(width=.2, outlier.shape = NA,
-                 show.legend = F) +
-    stat_compare_means(size = 3.5, label.y.npc = .9,
-                       label.sep = '\n', label.x = 1.5) +
-    scale_fill_manual(values = list_color) +
-    labs(x='', y ='SBS1 Contribution') +
-    theme_pubr() +
-    theme(panel.grid.major.y = element_blank(),
-          panel.grid.minor = element_blank(),
-          axis.title = element_text(size=12), 
-          axis.text.y = element_text(size=10),
-          axis.text.x = element_blank(),
-          legend.position = c(.85,.75),
-          legend.text = element_text(size=10),
-          legend.title = element_text(size=15),
-          strip.text.x = element_text(size = 15))
 }
 
 ##### fig2f: mutational signatures
 {
   stat.test <- xchisq.test(ctdna_lev ~id5, data=signatures_df)
-  fig2f <- signatures_df |>
+  fig2e <- signatures_df |>
     ggplot(aes(x = factor(ctdna_lev, 
                           levels = c('low', 'med', 'high')))) +
-    geom_bar(aes(fill = id5,
+    geom_bar(aes(fill = factor(id5, level=c('zero', 'non-zero')),
                  color = factor(ctdna_lev, 
                                 levels = c('low', 'med', 'high'))), 
              position = 'fill', linewidth=1.2) +
@@ -252,11 +193,11 @@ dna_cohort <- ascat_est |>
     theme(panel.grid.major.y = element_blank(),
           panel.grid.minor = element_blank(),
           axis.title = element_text(size=12), 
-          axis.text.y = element_text(size=10),
+          axis.text.y = element_text(size=13),
           axis.text.x = element_blank(),
           legend.position = 'right',
           legend.text = element_text(size=10),
-          legend.title = element_text(size=15),
+          legend.title = element_text(size=12),
           strip.text.x = element_text(size = 15))
 }
 
