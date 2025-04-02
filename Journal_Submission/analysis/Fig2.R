@@ -1,4 +1,4 @@
-source('src/00_functions.R')
+source('./load_data.R')
 
 library(fmsb)
 library(ggradar)
@@ -10,17 +10,6 @@ library(igraph)
 # load data
 ## MDBSig hallmark
 pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
-
-## data
-load('~/OmicsIntegration/data/RNA/pretrt_RNA.RData')
-# contains related data tables: 
-# - bulk_rna: Bulk RNA data from primary samples
-# - rna_samples: proportion of cell populations decomposed from primary bulk
-# - rna_z: weight for normalization
-# - rna_g: decomposed expression
-
-rna_z_prim <- rna_z
-rownames(rna_z_prim) = rna_z_prim$geneID
 
 ### processing - all samples
 {
@@ -97,7 +86,7 @@ res_high_low_Sig |>
   as.data.frame() |>
   write.table('results/outputs/DGE_highvslow_shrink.tsv', col.names = T, row.names = F, 
               quote = F, sep = '\t')
-##### fig3a: Volcano plot
+##### fig2a: Volcano plot
 {
   vol.df.high.low <- res_high_low %>% 
     as.data.frame() %>%
@@ -109,7 +98,7 @@ res_high_low_Sig |>
            gene = ifelse(abs(log2FoldChange) > 1 & padj < .05, 
                          geneName, NA))
   
-  fig3a <- vol.df.high.low %>% 
+  fig2a <- vol.df.high.low %>% 
     mutate(y = -log10(padj)) %>% 
     ggplot(., aes(x = log2FoldChange, y = y, 
                   color=thresh)) + 
@@ -133,57 +122,38 @@ res_high_low_Sig |>
           strip.text.x = element_text(size = 15))
 }
 
-##### fig3b,c: ORA analysis
+##### fig3b: heatmap of 3 genes CIITA, MUC4, and MUC1
 {
-  hallmark_desc <- names(pathways.hallmark)
-  names(hallmark_desc) <- names(pathways.hallmark)
-  hallmark_sets <- pathfindR::fetch_gene_set(gene_sets = 'Custom',
-                                             custom_genes = pathways.hallmark,
-                                             custom_descriptions = hallmark_desc)
-  ############# pathfindR
-  ########### high versus low ctDNA #############
-  highvslow_pathfindRinput <- res_high_low |>
-    as.data.frame() |>
-    dplyr::select(SYMBOL, log2FoldChange, padj) |>
-    filter(!duplicated(SYMBOL),
-           !is.na(padj)) |>
+  gene_markers <- c('CIITA', 'MUC4', 'MUC1')
+  gene_markers_df <- Z.n %>% 
+    as.data.frame() %>%
+    tibble::rownames_to_column(var = 'gene') |>
+    filter(gene %in% gene_markers) %>%
+    left_join(ctdna_cohort |>
+                dplyr::select(patient, ctdna_lev, Stage, treatment)) |>
+    dplyr::select(-sample) |>
+    dplyr::group_by(patient, ctdna_lev, Stage, treatment) |>
+    dplyr::summarise_all(.funs = function(x) {mean(x)}) |>
     as.data.frame()
-  dim(highvslow_pathfindRinput)
-  
-  ##
-  output_highvslow <- pathfindR::run_pathfindR(highvslow_pathfindRinput, 
-                                               gene_sets = 'Custom',
-                                               custom_genes = pathways.hallmark,
-                                               custom_descriptions = hallmark_desc, 
-                                               min_gset_size = 20,
-                                               p_val_threshold = .05,
-                                               iterations = 25) |>
-    mutate(ID = sub('HALLMARK_', '', ID),
-           Term_Description = sub('HALLMARK_', '', Term_Description))
-  
-  highvslow_processed <- pathfindR::input_processing(highvslow_pathfindRinput)
-  
-  fig3b <- pathfindR::term_gene_heatmap(output_highvslow, 
-                               num_terms = 9, low = list_color[1],high = list_color[3]) +
-    theme(axis.text.x = element_text(size=7))
-  
-  fig3c <- pathfindR::term_gene_graph(
-    output_highvslow,
-    num_terms = 9, 
-    layout = "stress",
-    use_description = T,
-    node_size = "num_genes"
-  ) +
-    scale_color_manual(values = c('grey', list_color[3], list_color[1]),
-                       labels = c("enriched term", "up-regulated genes in high ctDNA", 
-                                  "up-regulated genes in med ctDNA")) +
-    labs(color='', `# genes` = '')+
-    guides(fill=guide_legend(ncol=2)) +
-    theme(title = element_text(family = 'Arial', size = 15),
-          legend.text = element_text(size = 10, family = 'Arial')) 
+
+  gene_mx <- gene_markers_df[, c('CIITA','MUC4','MUC1')]
+  annot_mx <- gene_markers_df[,c(1:4,ncol(gene_markers_df))] |> 
+    tibble::column_to_rownames(var='patient')
+
+  row_ha = ComplexHeatmap::rowAnnotation('ctdna level' = annot_mx$ctdna_lev, 
+                                       'ctdna fraction' = annot_mx$TF, 
+                                       treatment = annot_mx$treatment,
+                                       #FIGO = annot_mx$Stage,
+                                       col = list('ctdna level' = c("low" = list_color[1], "med" = list_color[2], "high" = list_color[3]),
+                                                  'ctdna fraction' = colorRamp2::colorRamp2(c(0, .06, .4), c("white", "#C5D4B9", "#7ABC6D")),
+                                                  treatment=c('NACT'='#794044','PDS'='#088da5')))
+
+  fig2b <- ComplexHeatmap::Heatmap(scale(as.matrix(log2(gene_mx+1e-3))), 
+                        left_annotation = row_ha,
+                        name = "z-score") 
 }
 
-#### figure 3d: gene set enrichment analysis
+#### figure 2c: gene set enrichment analysis
 # hallmark pathway analysis
 {
   pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
@@ -210,7 +180,7 @@ res_high_low_Sig |>
     arrange(desc(NES)) |>
     as.data.frame()
   
-  fig3d <- hallmark.resTidy %>%
+  fig2c <- hallmark.resTidy %>%
     filter(padj < 0.05) %>% 
     mutate(pathway=sub('HALLMARK_', '', pathway),
            gr = ifelse(NES > 1, 'high', 'low'),
