@@ -1,53 +1,38 @@
-source('00_functions.R')
+source('load_data.R')
 
-genome_size <- 2900077904/1e6 # (Megabase)
-# load WGS tissue mutation data
-load('~/OmicsIntegration/data/WGS/mutation_call_4_6.RData')
-
-# mutational signature on sample level
-load('~/OmicsIntegration/data/WGS/mutational_signature_sample_lev_231005.RData')
-
-load('~/OmicsIntegration/data/WGS/ascat_results.RData')
-
-dna_cohort <- ascat_est |>
-  filter(patient %in% ctdna_cohort$patient) |>
-  mutate(tissue_gr = ifelse(tissue %in% c('Ome', 'Per'), tissue, 
-                            ifelse(tissue %in% c('Ova', 'Tub', 'Adn', 'And'),
-                                   'Ova_Tub','Other'))) |>
-  left_join(ctdna_cohort |>
-              dplyr::select(patient, TF=ctDNA_fraction, Stage,
-                            ctdna_lev, treatment)) 
-  
-##### fig2a: number of breakpoints
+##### fig3a: number of breakpoints
 {
   ascat_break <- ascat_break_point |>
     inner_join(ctdna_cohort |>
                 dplyr::select(patient, ctdna_lev))
   
-  fig2a <- ascat_break |> 
+  fig3a <- ascat_break |> 
+    inner_join(dna_cohort |>
+                dplyr::select(sample, purity, TP53.VAF)) |>
+    filter(sample %in% highest_purity_dna$sample) |> 
+    as.data.frame() |> 
     ggplot(aes(x=factor(ctdna_lev, 
                         levels = c('low', 'med', 'high')), 
                y = breaks/genome_size)) +
     geom_boxplot(aes(color=factor(ctdna_lev, 
+                              levels = c('low', 'med', 'high'))),
+                 outlier.shape = NA,
+                 show.legend = F, width=.5) +
+    geom_dotplot(aes(fill=factor(ctdna_lev, 
                                   levels = c('low', 'med', 'high'))),
-                 show.legend = F) +
-    geom_jitter(aes(color=factor(ctdna_lev, 
-                                 levels = c('low', 'med', 'high'))),
-                show.legend = F) +
+                 show.legend = F,
+                 binaxis='y', stackdir='center', dotsize=.7) +
     scale_color_manual(values = list_color) +
-    stat_compare_means(size=5, label.y.npc = .85) +
+    scale_fill_manual(values = list_color) +
     stat_compare_means(comparisons = list(c('low', 'med'),
                                           c('high', 'med'),
                                           c('high', 'low')),
-                       label = 'p.signif', size=5,
-                       label.y = c(32,34,36), 
+                       label = '.p.', size=5,
+                       label.y = c(.27,.30,.33), 
                        tip.length = .01) +
-    labs(fill='ctDNA level', x='', 
-         y = 'Avg N Breakpoints per Megabase') +
+    labs(fill='ctDNA level', x='', y = 'Avg N Breakpoints per Megabase') +
     theme_pubr() +
-    theme(panel.grid.major.y = element_blank(),
-          panel.grid.minor = element_blank(),
-          axis.title = element_text(size=12), 
+    theme(axis.title = element_text(size=15), 
           axis.text.y = element_text(size=13),
           axis.text.x = element_blank(),
           legend.position = 'none',
@@ -55,40 +40,34 @@ dna_cohort <- ascat_est |>
           legend.title = element_text(size=12),
           strip.text.x = element_text(size = 15))
   
-  fig2a
+  fig3a
 }
 
-##### fig2b: mutational burden
+##### fig3b: mutational burden
 {
-  fig2b <- mut_pat_lev |>
+  fig3b <- mut_pat_lev |>
     dplyr::group_by(patient, ctdna_lev) %>%
     dplyr::summarise(n_mut = n()/genome_size) %>%
     as.data.frame() %>%
     ggplot(aes(x = factor(ctdna_lev, 
                           levels = c('low', 'med', 'high')), 
                y = n_mut)) +
-    geom_violin(aes(color=factor(ctdna_lev, 
-                                 levels = c('low', 'med', 'high')))) +
-    geom_jitter(
-      aes(color = factor(ctdna_lev, 
-                         levels = c('low', 'med', 'high'))), 
-      position = position_jitterdodge(jitter.width = 1.4, dodge.width = .4),
-      size = 2, show.legend = F
-    ) +
-    stat_summary(color = 'black', fun.data="mean_sdl",  
-                 fun.args = list(mult=1), 
-                 geom = "pointrange",  size = 1,
-                 position = position_dodge(1))+
+    geom_boxplot(aes(color=factor(ctdna_lev, 
+                                 levels = c('low', 'med', 'high'))),
+                 outlier.shape = NA, width=.5) +
+    geom_dotplot(aes(fill=factor(ctdna_lev, 
+                                 levels = c('low', 'med', 'high'))),
+                 show.legend = F,
+                 binaxis='y', stackdir='center', dotsize=.7) +
     scale_color_manual(values = list_color) +
-    stat_compare_means(size=5) +
+    scale_fill_manual(values = list_color) +
     stat_compare_means(comparisons = list(c('high', 'med'),
                                           c('low', 'med'),
                                           c('high', 'low')),
-                       label = 'p.signif', size=5,
+                       label = '..p..', size=5,
                        label.y = c(13,11,15), 
                        tip.length = .01) +
-    labs(fill='ctDNA Level', x = '', 
-         y='Mutation Count per Megabase') +
+    labs(x = '', y='Mutation Count per Megabase', fill='ctDNA Level') +
     theme_pubr() +
     theme(axis.title = element_text(size=15), 
           axis.text.y = element_text(size=13),
@@ -99,9 +78,9 @@ dna_cohort <- ascat_est |>
           strip.text.x = element_text(size = 15))
 }
 
-##### fig2c: mutation types
+##### fig3c: mutation types
 {
-  fig2c <- mut_sigs |>
+  fig3c <- mut_sigs |>
     ggplot(aes(x = factor(ctdna_lev, levels = c('low', 'med', 'high')),
                y = mut_count/genome_size)) + 
     geom_jitter(
@@ -132,9 +111,9 @@ dna_cohort <- ascat_est |>
           strip.text.x = element_text(size = 15))
 }
 
-##### fig2d: mutational signatures
+##### fig3d: mutational signatures
 {  
-  fig2d <- signatures_df |>
+  fig3d <- signatures_df |>
     filter(signature %in% c('SBS40', 'DBS9')) |>
     ggplot(aes(x = factor(ctdna_lev, 
                           levels = c('low', 'med', 'high')),
@@ -168,10 +147,10 @@ dna_cohort <- ascat_est |>
           strip.text.x = element_text(size = 15)) 
 }
 
-##### fig2f: mutational signatures
+##### fig3e: mutational signatures
 {
   stat.test <- xchisq.test(ctdna_lev ~id5, data=signatures_df)
-  fig2e <- signatures_df |>
+  fig3e <- signatures_df |>
     ggplot(aes(x = factor(ctdna_lev, 
                           levels = c('low', 'med', 'high')))) +
     geom_bar(aes(fill = factor(id5, level=c('zero', 'non-zero')),
