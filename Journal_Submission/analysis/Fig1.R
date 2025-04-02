@@ -1,3 +1,36 @@
+############## load data
+source('./load_data.R')
+
+### fig 1a
+fig1a <- ctdna_df_prim %>%
+    mutate(figo = ifelse(Stage %in% c('I', 'II'), 'Early', Stage)) |>
+    ggplot(aes(x=factor(figo, 
+                        labels = c('Benign\n(n=10)',
+                                   'Early\n(n=14)',
+                                   'III\n(n=85)',
+                                   'IV\n(n=19)')),
+               y = TF)) +
+    geom_boxplot(width=.3,outlier.shape = NA,
+                 alpha=.4, show.legend = F) + 
+  geom_jitter(aes(color=ctdna_lev), 
+              size=3, position=position_jitter(0.2)) + 
+  stat_compare_means(comparisons = comp1,
+                     label.y = c(.12,.16,.20,.24) ) +
+  geom_hline(yintercept = thresh1, color=list_color[1]) + 
+  geom_hline(yintercept = thresh2, color=list_color[3]) + 
+  scale_colour_manual(values = c("high" = list_color[3], 
+                                 "med" = list_color[2],
+                                 "low"=list_color[1])) +
+  labs(x='Stages at diagnosis', y ='ctDNA fraction',
+       color = 'ctDNA level') + 
+  theme_classic() +
+  theme(axis.text.x = element_text(size=13,  family = 'Arial', colour = 'black'),
+        axis.title = element_text(size=15,  family = 'Arial', colour = 'black'),
+        axis.text = element_text(size=13, family = 'Arial', colour = 'black'),
+        legend.position = 'none', 
+        legend.text = element_text(size=11, family = 'Arial', colour = 'black'),
+        legend.title = element_text(size=13, family = 'Arial', colour = 'black'))
+
 ############## GSVA scores for hallmark geneset
 ## MDBSig hallmark
 pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
@@ -36,15 +69,13 @@ pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
   
   data_mtx <- as.matrix(count_mtx)
   
-  hsi_NES <- GSVA::gsva(as.matrix(data_mtx),
-                        pathways.hallmark,
-                        method="gsva",
-                        min.sz=20,
-                        max.sz=1000, 
-                        kcdf="Poisson")
+  ## build GSVA parameter object
+  gsvapar <- GSVA::gsvaParam(data_mtx, pathways.hallmark, maxDiff=TRUE,
+                       minSize = 20, maxSize = 1000, kcdf = 'Poisson')
+  hsi_NES <- GSVA::gsva(gsvapar)
 }
 
-##### fig4a,b:
+## analysis for constructing figure 1b
 {
   hsi_sample <- t(hsi_NES) %>%
     as.data.frame() |>
@@ -58,29 +89,24 @@ pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
     dplyr::group_by(patient, pheno, pathway) |>
     dplyr::summarise(Score = mean(score))
   
-  # 4 hallmarks proliferation-related gene sets
-  proliferate_pathways <- c('E2F_TARGETS', 
-                            'G2M_CHECKPOINT',
-                            'MYC_TARGETS_V1',
-                            'MYC_TARGETS_V2')
+  ## get significant pathways
+  pathways <- unique(mean_score_pathway$pathway) |>
+    as.data.frame() |>
+    dplyr::rename_with(~'pathway') |>
+    mutate(Kruskal_Wallis_stat = NA,
+           p_val = NA)
   
-  # metabolism-related pathway
-  metabolic_pathways <- c('OXIDATIVE_PHOSPHORYLATION', 
-                          'GLYCOLYSIS',
-                          'UNFOLDED_PROTEIN_RESPONSE',
-                          'FATTY_ACID_METABOLISM')
-  
-  # immune-related pathway
-  imm_pathways <- c('IL6_JAK_STAT3_SIGNALING',
-                    'ALLOGRAFT_REJECTION', 
-                    'COAGULATION',
-                    'INFLAMMATORY_RESPONSE')
+  for (i in pathways$pathway){ 
+    dat <- mean_score_pathway |>
+      filter(pathway == i)
+    
+    comp_res <- kruskal.test(Score ~ pheno, data = dat)
+    
+    pathways[pathways$pathway==i,2:3] = c(comp_res$statistic[[1]], comp_res$p.value)
+  }
 
-  # signaling-related pathway
-  signaling_pathways <- c('MTORC1_SIGNALING',
-                          'IL2_STAT5_SIGNALING',
-                          'HEDGEHOG_SIGNALING',
-                          'TNFA_SIGNALING_VIA_NFKB')
+  # significant pathways below are also provided in supplementary table S5
+  sig.pathways <- pathways[pathways$p_val<.05,]$pathway
 
   interested_pathways <- hsi_sample[,c('patient',
                                        colnames(hsi_sample)[grepl('HALLMARK',colnames(hsi_sample))])]
@@ -96,7 +122,8 @@ pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
     tibble::column_to_rownames(var='patient') |>
     dplyr::select(-TF)
   
-  interested_pathways <- interested_pathways[,c(proliferate_pathways, metabolic_pathways, imm_pathways, signaling_pathways)]
+  interested_pathways <- interested_pathways[,sig.pathways]
+  
   ann.row <- interested_pathways |>
     tibble::rownames_to_column(var='patient') |>
     dplyr::select(patient) |>
@@ -110,8 +137,8 @@ pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
                              'high'=list_color[3]))
   breaksList = seq(-3, 3, by = .4)
   
-  ##### fig5a: heatmap
-  fig4a <- pheatmap::pheatmap(interested_pathways, annotation_row = ann.row, 
+  ##### fig1b: heatmap
+  fig1b <- pheatmap::pheatmap(interested_pathways, annotation_row = ann.row, 
                      annotation_colors = ann.col, 
                      cluster_rows = F, show_rownames = F, 
                      scale = 'column',
@@ -119,17 +146,9 @@ pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
                      breaks = breaksList, gaps_row = c(cumsum(c(49,27,26)),cumsum(c(49,27,26))), border_color = 'black',
                      fontsize_col = 8, cutree_rows = 4, cutree_cols = 2,
                      height = 3, width = 6)
-
-  ##### fig4b: correlation heatmap
-  corrplot::corrplot(cor(interested_pathways), type = 'upper', 
-                     tl.cex = .6, tl.col = c(rep('black',4),
-                                             rep('#660066',4),
-                                             rep('#000080',4),
-                                             rep('#794044',4)))
 }
 
-# PCA
-##### fig4c,d:
+## running PCA
 {
   data <- t(hsi_NES) %>%
     as.data.frame()
@@ -160,39 +179,27 @@ pathways.hallmark <- readRDS('int/hallmark_pathway.rds')
   factoextra::fviz_contrib(res.pca, choice = "var", axes = 1, top = 10, )
   # Contributions of variables to PC2
   factoextra::fviz_contrib(res.pca, choice = "var", axes = 2, top = 10)
-  
-  fig4c <- factoextra::fviz_pca_var(res.pca, col.var="contrib", axes = c(1, 2),
-                           gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-                           repel = TRUE, # Avoid text overlapping
-                           labelsize = 4
-  ) + theme_pubr() +
-    labs(color = 'Contribution', x = 'PCA1 (43.9%)', y = 'PCA2 (17.6%)') +
-    theme(title = element_blank(),
-          panel.grid.major.y = element_blank(),
-          panel.grid.minor = element_blank(),
-          axis.title = element_text(size=12, family = 'Arial'), 
-          axis.text.x = element_text(size=10, family = 'Arial'),
-          legend.position = c(.2,.85),
-          legend.text = element_text(size=10, family = 'Arial'),
-          legend.title = element_text(size=15, family = 'Arial'),
-          strip.text.x = element_text(size = 15, family = 'Arial'))
-  
-  fig4d <- factoextra::fviz_pca_ind(res.pca, label="contrib",#axes = c(1, 3), 
-                           habillage=factor(data$ctdna_lev, 
-                                            levels = c('low', 'med', 'high')),
-                           alpha=.9,
-                           pointsize = 2, 
-                           invisible="quali",
-                           palette = list_color) +
-    #labs(x = 'PCA1 (43.9%)', y = 'PCA2 (17.6%)') +
-    theme(title = element_blank(),
-          panel.grid.major.y = element_blank(),
-          panel.grid.minor = element_blank(),
-          axis.title = element_text(size=12, family = 'Arial'), 
-          axis.text.y = element_text(size=10, family = 'Arial'),
-          axis.text.x = element_text(size=10, family = 'Arial'),
-          legend.position = 'none',
-          strip.text.x = element_text(size = 15, family = 'Arial'))
+
+  ### figure 1c
+  fig1c <- factoextra::fviz_pca_biplot(res.pca, geom.ind = "point",axes = c(1, 2),
+                                fill.ind=factor(data$ctdna_lev, 
+                                                 levels = c('low', 'med', 'high')),
+                                pointshape=21, pointsize=5, addEllipses = F,
+                                col.var="contrib",repel = T, 
+                                geom.var = c("arrow"),arrowsize = 1.3,
+                                labelsize = 5,alpha.ind=.7,
+                                gradient.cols = "BuPu",# c("#00AFBB", "#E7B800", "#FC4E07"),
+                                palette = list_color) + 
+      labs(x = 'PCA1 (41.4%)', y = 'PCA2 (17.8%)') +
+      theme_classic()+
+      theme(#title = element_blank(),
+            axis.title = element_text(size=15, family = 'Arial'), 
+            axis.text.y = element_text(size=12, family = 'Arial'),
+            axis.text.x = element_text(size=12, family = 'Arial'),
+            legend.position = "right", 
+            legend.text = element_text(size=20, family = 'Arial'),
+            legend.title = element_text(size=20, family = 'Arial'),
+            strip.text.x = element_text(size = 15, family = 'Arial'))
 }
 
 ################ done ##################
