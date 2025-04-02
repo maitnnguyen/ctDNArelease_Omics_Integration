@@ -1,31 +1,5 @@
-source('/int/00_functions.R')
-
-# color setting:
-list_color <- c('#cc3333', '#339933', "#003399")
-# load data
-# 1. ctdna data
-# Clinical data
-ctdna_df_prim <- readxl::read_excel('data/Supplementary_Tables.xlsx', 
-                                      sheet = 'S1_ctDNA_samples') %>%
-  as.data.frame() 
-
-# note: details of clinical data will be provided on request
-# this information is not included in this source code
-clinical_data <- read.delim('~/clinical_data.tsv')
-
-ctdna_df_prim <- ctdna_df_prim |>
-  left_join(clinical_data)
-
-# threshold:
-thresh1 <- max(ctdna_df_prim[ctdna_df_prim$histology=='benign',]$ctDNA_fraction)
-thresh2 <- 0.065
-
-ctdna_cohort <- ctdna_df_prim |>
-  filter(histology!='benign') |>
-  dplyr::rename(concentration = `DNA_concentration (ng/ml)`)
-
-# 2. Figures
-##### 1ab - Kaplan Meier (KM) curves
+########################################## Figures ##########################################
+##### 4ab - Kaplan Meier (KM) curves
 surv_df <- ctdna_cohort %>%
   mutate(event = ifelse(progress=='Yes', 1, 0),
          died = ifelse(alive == 'Alive', 0, 1),
@@ -91,10 +65,61 @@ surv_df_pds <- surv_df |>
                     #risk.table.y.text=F,
                     show.legend=F)
 }
-##### 1cd - Cox regression
+##### 4cd - Univariate + Multivariate Cox regression
 {
   # PDS
   surv_df_pds$ctdna_level = relevel(surv_df_pds$pheno, ref = "med")
+  
+  dependent_pfi <- "Surv(PFI, event)"
+  expl_var <- c("ctdna_level", "residual", "stage", "HRD", "bmi_gr", "age_gr")
+
+  # regression results below were used for generating figure 4c
+  cox_res_pds <- surv_df_pds %>% 
+    finalfit::finalfit(dependent_pfi, 
+                       expl_var, 
+                       add_dependent_label = FALSE)
+
+  # multivariate plot
+  coxph2 <- coxph(Surv(PFI, event) ~ ctdna_level + 
+                  operable +
+                  stage +
+                  HRD +
+                  bmi_gr +
+                  age_gr,
+                  data = surv_df_nact )
+  
+  # combining univariate + multivariate plot
+  fig4c <- ggplot(cox_res_pds, aes(x = HR, xmax = high_conf, xmin = low_conf, 
+                   y = label, color = model, fill = model)) +
+          geom_point(size = 3, shape = 18, position = position_dodge(width = 0.5)) +
+          geom_linerange(position = position_dodge(width = 0.5), size = 1) +
+          geom_vline(xintercept = 1, size = 1) +
+          #geom_hline(yintercept = 0, size = 1) +
+          facet_grid(variable ~ ., scales = "free_y", space = "free_y") +
+          scale_alpha_identity() +
+          scale_fill_manual(values = barCOLS) +
+          scale_color_manual(values = dotCOLS) +
+          scale_y_discrete(name = "") +
+          scale_x_continuous(name = "Hazard ratio") +
+          geom_text(aes(label = variable), x = -Inf, y = Inf, hjust = 1, 
+                    vjust = .5,size = 6,
+                    check_overlap = TRUE, color = "darkgreen") +
+          coord_trans(x = 'log10', clip = 'off') +
+          theme(
+            panel.background = element_blank(),
+            panel.spacing = unit(0, "pt"),
+            axis.line.x.bottom = element_line(size = 1),
+            axis.text.y.left =  element_text(margin = margin(l = 15, unit = "pt"),
+                                             family = 'Arial', size=13, color = 'black',
+                                             vjust = 0),
+            strip.background = element_blank(), 
+            strip.text = element_blank(),
+            legend.position = 'none',
+            axis.title.x = element_text(size = 15),
+            axis.text.x = element_text(family = 'Arial', color = 'black',size = 13),
+            axis.text.y = element_text(family = 'Arial', color = 'black',size = 13)
+          )
+  
   coxph1 <- coxph(Surv(PFI, event) ~ ctdna_level + 
                   residual + 
                   stage +
@@ -104,19 +129,60 @@ surv_df_pds <- surv_df |>
                   data = surv_df_pds )
   
   fig1c <- ggforest(coxph1, data = surv_df_pds , fontsize = 1)
-
   
   # NACT
   surv_df_nact$ctdna_level = relevel(surv_df$ctdna_level, ref = "med")
+
+  # settings
+  dependent_pfi <- "Surv(PFI, event)"
+  expl_var <- c("ctdna_level", "operable", "stage", "HRD", "bmi_gr", "age_gr")
+
+  # regression results below were used for generating figure 4d
+  cox_res_nact <- dat %>% 
+    finalfit::finalfit(dependent_pfi, 
+                       expl_var, 
+                       add_dependent_label = FALSE)
+
+  # multivariate plot
   coxph2 <- coxph(Surv(PFI, event) ~ ctdna_level + 
                   operable +
                   stage +
-                  HRDconcensus +
+                  HRD +
                   bmi_gr +
                   age_gr,
                   data = surv_df_nact )
-  
-  fig1d <- ggforest(coxph2, data = surv_df_nact , fontsize = 1)
+
+  # combining univariate + multivariate plot
+  fig4d <- ggplot(cox_res_nact, aes(x = HR, xmax = high_conf, xmin = low_conf, 
+                   y = label, color = model, fill = model)) +
+          geom_point(size = 3, shape = 18, position = position_dodge(width = 0.5)) +
+          geom_linerange(position = position_dodge(width = 0.5), size = 1) +
+          geom_vline(xintercept = 1, size = 1) +
+          #geom_hline(yintercept = 0, size = 1) +
+          facet_grid(variable ~ ., scales = "free_y", space = "free_y") +
+          scale_alpha_identity() +
+          scale_fill_manual(values = barCOLS) +
+          scale_color_manual(values = dotCOLS) +
+          scale_y_discrete(name = "") +
+          scale_x_continuous(name = "Hazard ratio") +
+          geom_text(aes(label = variable), x = -Inf, y = Inf, hjust = 1, 
+                    vjust = .5,size = 6,
+                    check_overlap = TRUE, color = "darkgreen") +
+          coord_trans(x = 'log10', clip = 'off') +
+          theme(
+            panel.background = element_blank(),
+            panel.spacing = unit(0, "pt"),
+            axis.line.x.bottom = element_line(size = 1),
+            axis.text.y.left =  element_text(margin = margin(l = 15, unit = "pt"),
+                                             family = 'Arial', size=13, color = 'black',
+                                             vjust = 0),
+            strip.background = element_blank(), 
+            strip.text = element_blank(),
+            legend.position = 'none',
+            axis.title.x = element_text(size = 15),
+            axis.text.x = element_text(family = 'Arial', color = 'black',size = 13),
+            axis.text.y = element_text(family = 'Arial', color = 'black',size = 13)
+          )
 }
 
 ################ done ##################
