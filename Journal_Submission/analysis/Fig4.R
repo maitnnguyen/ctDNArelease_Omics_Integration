@@ -1,3 +1,4 @@
+source('./load_data.R')
 ########################################## Figures ##########################################
 ##### 4ab - Kaplan Meier (KM) curves
 surv_df <- ctdna_cohort %>%
