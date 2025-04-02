@@ -1,4 +1,4 @@
-source('load_data.R')
+source('./load_data.R')
 
 ##### fig3a: number of breakpoints
 {
@@ -39,8 +39,6 @@ source('load_data.R')
           legend.text = element_text(size=10),
           legend.title = element_text(size=12),
           strip.text.x = element_text(size = 15))
-  
-  fig3a
 }
 
 ##### fig3b: mutational burden
@@ -147,7 +145,7 @@ source('load_data.R')
           strip.text.x = element_text(size = 15)) 
 }
 
-##### fig3e: mutational signatures
+##### fig3e: mutational signatures ID5
 {
   stat.test <- xchisq.test(ctdna_lev ~id5, data=signatures_df)
   fig3e <- signatures_df |>
