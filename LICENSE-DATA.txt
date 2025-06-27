@@ -1,0 +1,17 @@
+LICENSE FOR RESTRICTED BIOLOGICAL DATA
+
+This dataset is shared under a custom license due to data privacy and ethical use restrictions.
+
+You may:
+✅ Use the dataset for academic, non-commercial research
+✅ Reference or benchmark against this dataset
+✅ Request access through the Zenodo platform or by contacting the dataset authors
+
+You may NOT:
+❌ Redistribute the dataset or derivatives publicly
+❌ Use the dataset for commercial purposes
+❌ Attempt to re-identify individuals or institutions involved
+
+Request access: mai.tn.nguyen@helsinki.fi
+
+By accessing this dataset, you agree to abide by these terms.
