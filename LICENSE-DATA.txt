@@ -1,6 +1,6 @@
 LICENSE FOR RESTRICTED BIOLOGICAL DATA
 
-This dataset is shared under a custom license due to data privacy and ethical use restrictions.
+The dataset is shared under a custom license due to data privacy and ethical use restrictions.
 
 You may:
 ✅ Use the dataset for academic, non-commercial research
