@@ -1,0 +1,38 @@
+# Nextflow work directory
+work/
+
+# Temporary files
+*.tmp
+*.log
+*.out
+*.err
+
+
+# Nextflow cache
+.nextflow*
+
+# R temporary files
+*.RData
+*.rds
+*.Rhistory
+*.Rapp.history
+
+# Python/conda environments (if any)
+.env/
+.venv/
+__pycache__/
+
+# BAM, CRAM, fastq files, and other large data
+*.bam
+*.bai
+*.cram
+*.crai
+*.fastq
+*.fq
+*.sam
+*.vcf
+*.vcf.gz
+
+# Results folder (optional, if you don't want to version intermediate outputs)
+results/
+assets/test_pon.tsv
