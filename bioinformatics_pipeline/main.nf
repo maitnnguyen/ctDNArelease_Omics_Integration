@@ -14,6 +14,7 @@ nextflow.enable.dsl=2
 // list of processes to be included
 include { coverage_calc } from '../../modules/coverage_calc.nf'
 include { segment_sample } from '../../modules/segment_sample.nf'
+include { fragment_distribution } from '../../modules/fragment_dist.nf'
 
 workflow {
     // Load BAM files from the specified directory
@@ -22,6 +23,9 @@ workflow {
                         bam -> 
                         tuple(bam.baseName, bam, 
                         file("${bam.parent}/${bam.baseName}.bai")) }
+
+    // option: check the DNA fragment size distribution
+    fragment_distribution(bam_files)
 
     coverage = coverage_calc(bam_files)
 
