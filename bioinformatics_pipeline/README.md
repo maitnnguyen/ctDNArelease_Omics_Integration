@@ -31,6 +31,10 @@ PoN has been built from 314 BDNA samples, no need to run this pipeline if not ne
 - Centralized configuration: Most of parameters are default except mappability threshold for filtering (recommended for ctDNA sWGS data). This parameter is defined in `params.json`. If the user wants to apply the pipeine for deeper coverage sequencing (≥ 2x, try to tune parameter - not implementeed in this pipeline).
 - R script for modules/(sub)workflows: located in `bin/` directory
 
+*Additional module (**recommended**) *:
+- Module `fragment_dist.nf` is recommended to run and check how DNA fragment size of the ctDNA sample, this will help evaluate quality of the sequencing. The peak of DNA fragment size should be around 140-170bp, if the peak of the DNA fragment size is bigger than 200bp (look at the distribution histogram).
+- This module is added into the main pipeline, can be commented out if not needed.
+
 ### Configuration
 In the configuration file for each pipeline, adjust information if needed such as:
 - Path to bam files to run the main pipeline. Usually, after the NGS data is processed and the output files (bam files) are moved to `/mnt/storageBig8/resources/processed_data/ctDNA/[folder contain bam files]`. This path should be updated when running the pipeline.
@@ -42,6 +46,8 @@ In the configuration file for each pipeline, adjust information if needed such a
 
 ### Usage
 #### Basic Usage
+Access to folder `workflow/swgs/` then run command below:
+
 ```/opt/bin/share/nextflow run main.nf```
 
 ### Scripts
@@ -54,6 +60,9 @@ The main aim of the pipeline is to estimate the tumor fraction of ctDNA sample. 
 results/
 ├── coverage
 │   ├── {sample}_coverage.txt
+├── fragment_distribution
+│   ├── {sample}_fragment_distribution.txt
+│   ├── {sample}_distrbution_histogram.pdf
 ├── segmentation
 │   ├── {sample}_segment
 │   │   ├── normalizeCount.rds
