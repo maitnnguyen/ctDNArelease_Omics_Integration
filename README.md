@@ -7,21 +7,26 @@
 ## Material and method
 - Liquid biopsy: plasma samples
   - shallow WGS
-  - tumor fraction estimation with ichorCNA
+  - tumor fraction estimation with ichorCNA, the bioinformatic pipeline is in the subfolder `bioinformatics_pipeline`. The pipeline was written with `nextflow`.
 - Genomics:
   - mutational burden
-  - mutational signatures
+  - mutational signatures: COSMIC database
   - number of breakpoints from segmentation profiles
 - Transcriptomics:
   - cancer cell component decomposed from bulkRNA expression
   - DESeq2 for differential expression gene
   - Gene set enrichment analysis with gsea
+- Single-cell transcriptomics for validation:
+  - General cell types were annotated based on this paper: https://www.biorxiv.org/content/10.1101/2025.06.13.659489v1
+  - SingleR, celldex are then used for annotating subtypes of T cells
+  - UCell is used to calculate gene signature scores
  
 ## Source code
 - Pipeline for data from plasma samples
-  - ~/Journal_Submission/pipeline
+  - `~/bioinformatics_pipeline`
+  - `nextflow` pipeline
 - Analysis and figures
-  - ~/Journal_Submission/analysis
+  - `~/Journal_Submission`
  
 ## Graphical abstracts
 [TBA]
